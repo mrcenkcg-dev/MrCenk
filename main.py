@@ -1,36 +1,41 @@
 import os
 import subprocess
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 
-# 1. Bind an HTTP server so Render's Free Web Service scanner succeeds
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Three Monkey System is Active!")
+# --- 1. START HTTP SERVER FIRST FOR RENDER HEALTH CHECK ---
+try:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    import threading
 
-def run_dummy_server():
-    # Read assigned PORT environment variable, default to 10000
+    class HealthHandler(SimpleHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Monkey Court Online")
+
+        def log_message(self, format, *args):
+            return  # Suppress HTTP access logs
+
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    print(f"Health check server listening on 0.0.0.0:{port}")
+except Exception as e:
+    print(f"Server warning: {e}")
 
-# Start HTTP server on host 0.0.0.0 in a daemon thread
-threading.Thread(target=run_dummy_server, daemon=True).start()
-
-# 2. Initialize DB schema
+# --- 2. INITIALIZE DATABASE ---
 subprocess.run(["python", "database.py"])
 
-# 3. Launch sub-processes
+# --- 3. LAUNCH THREE MONKEY AGENTS ---
 watcher = subprocess.Popen(["python", "watcher.py"])
 miner = subprocess.Popen(["python", "miner.py"])
 cleaner = subprocess.Popen(["python", "cleaner.py"])
 
 print("All 3 Monkey Court agents successfully started online!")
 
-# 4. Keep main process alive
+# --- 4. KEEP ALIVE ---
 try:
     while True:
         time.sleep(60)
